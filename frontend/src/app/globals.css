@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f7f5eb;
+  --foreground: #202923;
+  --brand-forest: #164e35;
+  --brand-secondary: #386641;
+  --brand-light: #e4ebdd;
+  --brand-cream: #f7f5eb;
+  --brand-muted: #68756a;
+  --brand-border: #e2e8df;
+  --ui-radius-control: 0.875rem;
+  --ui-radius-card: 1.5rem;
+  --ui-shadow-brand: 0 18px 50px -28px rgba(22, 78, 53, 0.22);
+  --ui-section-space: 4rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brand-forest: var(--brand-forest);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-light: var(--brand-light);
+  --color-brand-cream: var(--brand-cream);
+  --color-brand-muted: var(--brand-muted);
+  --color-brand-border: var(--brand-border);
+  --color-emerald-50: #f1f5ef;
+  --color-emerald-100: #e4ebdd;
+  --color-emerald-200: #c9d8c4;
+  --color-emerald-300: #a8c09f;
+  --color-emerald-400: #7d9d78;
+  --color-emerald-500: #5d805d;
+  --color-emerald-600: #386641;
+  --color-emerald-700: #2c5c3b;
+  --color-emerald-800: #205238;
+  --color-emerald-900: #164e35;
+  --color-emerald-950: #123d2b;
+  --color-orange-50: #f1f5ef;
+  --color-orange-100: #e4ebdd;
+  --color-orange-200: #c9d8c4;
+  --color-orange-300: #a8c09f;
+  --color-orange-400: #7d9d78;
+  --color-orange-500: #5d805d;
+  --color-orange-600: #386641;
+  --color-orange-700: #2c5c3b;
+  --color-orange-800: #205238;
+  --color-orange-900: #164e35;
+  --radius-control: var(--ui-radius-control);
+  --radius-2xl: 1.25rem;
+  --radius-3xl: var(--ui-radius-card);
+  --shadow-brand: var(--ui-shadow-brand);
+  --spacing-section: var(--ui-section-space);
+}
+
+* {
+  border-color: var(--brand-border);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  font-feature-settings: "ss01" on;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--brand-light);
+  color: var(--brand-forest);
+}
+
+.rasa-map-marker {
+  display: flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid white;
+  border-radius: 50% 50% 50% 0;
+  background: var(--brand-forest);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transform: rotate(-45deg);
+}
+
+.rasa-map-marker span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: white;
+}

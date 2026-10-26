@@ -1,0 +1,35 @@
+# Environment dan rahasia
+.env
+.env.*
+!.env.example
+!.env.*.example
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+
+# Dependencies
+**/node_modules/
+**/vendor/
+
+# Build dan cache
+**/.next/
+**/out/
+**/dist/
+**/build/
+**/.cache/
+**/.tsupgrader/
+**/.vercel/
+
+# Log dan cache pengujian
+**/*.log
+**/.phpunit.result.cache
+**/tsconfig.tsbuildinfo
+
+# File sistem
+.DS_Store
+Thumbs.db
+*.pem
+
+# Repository Git bersarang
+/frontend/.git
