@@ -29,9 +29,14 @@ class OrderController extends Controller
         $data = $this->validateOrder($request);
         try {
             $order = $this->createOrderRecord($request, $data);
-            $order->update(['snap_token' => $snap->createToken($order)]);
+            $transaction = $snap->createTransaction($order);
+            $order->update(['snap_token' => $transaction['token']]);
 
-            return response()->json(['data' => $order->fresh('items.product'), 'snap_token' => $order->snap_token], 201);
+            return response()->json([
+                'data' => $order->fresh('items.product'),
+                'snap_token' => $order->snap_token,
+                'redirect_url' => $transaction['redirect_url'],
+            ], 201);
         } catch (Throwable $exception) {
             return response()->json(
                 ['message' => $exception->getMessage()],

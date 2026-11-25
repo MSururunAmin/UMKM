@@ -6,13 +6,14 @@ import { ArrowDown, ArrowRight, CheckCircle2, Leaf, MapPin, Store } from "lucide
 import { SiteHeader } from "@/components/site-header";
 import { HomeFeaturedProducts } from "@/components/home-featured-products";
 import { api } from "@/lib/api";
+import { featuredFoodImage, getFoodImage } from "@/lib/food-images";
 import type { Category } from "@/types/api";
+import Image from "next/image";
 
 type HomeSettings = {
   home_badge: string;
   home_title: string;
   home_description: string;
-  home_card_emoji: string;
   home_card_label: string;
   home_card_title: string;
   category_eyebrow: string;
@@ -31,7 +32,6 @@ const defaultSettings: HomeSettings = {
   home_badge: "Rasa dekat, dukung lokal",
   home_title: "Cerita baik, dimulai dari sepiring rasa.",
   home_description: "Temukan masakan rumahan dan jajanan autentik dari pelaku UMKM di sekitarmu. Setiap pesanan ikut menumbuhkan usaha lokal.",
-  home_card_emoji: "🍲",
   home_card_label: "Dari tetangga, untuk tetangga",
   home_card_title: "Rasa rumahan, selalu punya cerita.",
   category_eyebrow: "Ada rasa untuk setiap suasana",
@@ -77,13 +77,13 @@ export default function Home() {
       <SiteHeader />
       <main>
         {contentUnavailable && <p role="status" className="bg-amber-50 px-5 py-2 text-center text-xs text-amber-900">Konten terbaru belum dapat dimuat. Menampilkan konten bawaan.</p>}
-        <section className="overflow-hidden bg-brand-cream">
-          <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 py-14 sm:px-8 sm:py-20 lg:grid-cols-[1fr_0.9fr] lg:gap-16 lg:py-24">
+        <section className="relative overflow-hidden bg-[radial-gradient(ellipse_at_85%_15%,rgba(215,232,213,0.72),transparent_35%),linear-gradient(180deg,#f6f8f2_0%,#f1f5ee_100%)]">
+          <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 py-8 sm:px-8 sm:py-12 lg:grid-cols-[1fr_0.9fr] lg:gap-16 lg:py-10">
             <div className="relative z-10">
-              <p className="mb-6 inline-flex items-center gap-2 rounded-full border border-brand-border bg-white/80 px-4 py-2 text-sm font-semibold text-brand-secondary shadow-sm">
+              <p className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-900/10 bg-white/80 px-4 py-2 text-sm font-semibold text-brand-secondary shadow-sm backdrop-blur">
                 <MapPin size={16} /> {settings.home_badge}
               </p>
-              <h1 className="max-w-2xl text-5xl font-black leading-[1.06] tracking-[-0.045em] text-stone-900 sm:text-6xl lg:text-7xl">
+              <h1 className="max-w-2xl text-5xl font-black leading-[1.04] tracking-[-0.055em] text-stone-900 sm:text-6xl lg:text-7xl">
                 {settings.home_title}
               </h1>
               <p className="mt-6 max-w-xl text-lg leading-8 text-brand-muted">
@@ -107,12 +107,22 @@ export default function Home() {
             </div>
             <div className="relative mx-auto w-full max-w-xl">
               <div className="absolute -right-8 -top-8 size-44 rounded-full bg-brand-light/80 blur-2xl" />
-              <div className="relative overflow-hidden rounded-[2.5rem] border border-white/70 bg-gradient-to-br from-emerald-100 via-[#eef0dc] to-[#e7ead6] p-6 shadow-[0_30px_80px_-36px_rgba(22,78,53,0.35)] sm:p-9">
+              <div className="relative overflow-hidden rounded-[2.5rem] border border-white/80 bg-gradient-to-br from-emerald-100 via-[#eef0dc] to-[#e7ead6] p-5 shadow-[0_36px_90px_-40px_rgba(18,61,43,0.45)] sm:p-9">
                 <div className="flex items-center justify-between">
                   <span className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-2 text-xs font-bold text-brand-forest"><Leaf size={14} /> PILIHAN DARI DAPUR LOKAL</span>
                   <span className="text-sm font-semibold text-brand-muted">01 / 04</span>
                 </div>
-                <div className="flex min-h-64 items-center justify-center text-[9rem] drop-shadow-[0_18px_22px_rgba(22,78,53,0.16)] sm:min-h-80 sm:text-[12rem]" aria-hidden="true">{settings.home_card_emoji}</div>
+                <div className="relative my-5 aspect-[4/3] overflow-hidden rounded-[1.75rem]">
+                  <Image
+                    src={featuredFoodImage}
+                    alt="Hidangan lokal siap dinikmati"
+                    fill
+                    preload
+                    sizes="(max-width: 1024px) 100vw, 45vw"
+                    quality={75}
+                    className="object-cover"
+                  />
+                </div>
                 <div className="rounded-2xl bg-white/90 p-4 shadow-lg shadow-emerald-950/5 backdrop-blur sm:p-5">
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand-secondary">{settings.home_card_label}</p>
                   <p className="mt-1 text-lg font-extrabold text-stone-900">{settings.home_card_title}</p>
@@ -146,11 +156,24 @@ export default function Home() {
             <div><p className="text-sm font-bold uppercase tracking-[0.16em] text-brand-secondary">{settings.category_eyebrow}</p><h2 className="mt-2 text-3xl font-black tracking-tight text-stone-900 sm:text-4xl">{settings.category_title}</h2></div>
             <Link href="/products" className="inline-flex items-center gap-2 font-bold text-brand-forest hover:text-brand-secondary">Lihat semua menu <ArrowRight size={17} /></Link>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {categories.map((category) => (
-              <Link href={`/products?category=${encodeURIComponent(category.slug)}`} key={category.id} className="group rounded-3xl border border-brand-border bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-lg hover:shadow-emerald-950/5">
-                <div className="mb-5 flex size-16 items-center justify-center rounded-2xl bg-brand-light text-4xl transition group-hover:rotate-3">{category.emoji || "🍽️"}</div>
-                <h3 className="font-bold text-stone-900">{category.name}</h3><p className="mt-1 text-sm leading-6 text-brand-muted">{category.caption}</p>
+              <Link href={`/products?category=${encodeURIComponent(category.slug)}`} key={category.id} className="group relative min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl hover:shadow-emerald-950/10 sm:rounded-3xl">
+                <div className="relative aspect-[4/3] overflow-hidden bg-brand-light sm:aspect-[16/10]">
+                  <Image
+                    src={getFoodImage(category)}
+                    alt={`Foto ${category.name}`}
+                    fill
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, 25vw"
+                    quality={70}
+                    className="object-cover transition duration-500 group-hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-emerald-950/85 via-emerald-950/10 to-transparent" />
+                  <div className="absolute inset-x-0 bottom-0 p-3 text-white sm:p-5">
+                    <h3 className="text-sm font-black leading-tight drop-shadow sm:text-lg">{category.name}</h3>
+                    <p className="mt-1 hidden text-xs leading-5 text-white/80 sm:line-clamp-2">{category.caption}</p>
+                  </div>
+                </div>
               </Link>
             ))}
           </div>

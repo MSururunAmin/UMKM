@@ -2,11 +2,14 @@
 
 use App\Http\Controllers\Api\V1\Admin\MerchantVerificationController;
 use App\Http\Controllers\Api\V1\Admin\SiteContentController;
+use App\Http\Controllers\Api\V1\Admin\DashboardController;
+use App\Http\Controllers\Api\V1\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Customer\OrderController;
 use App\Http\Controllers\Api\V1\Merchant\MerchantController;
 use App\Http\Controllers\Api\V1\Merchant\ProductController;
 use App\Http\Controllers\Api\V1\OrderMessageController;
+use App\Http\Controllers\Api\V1\Payment\MidtransNotificationController;
 use App\Http\Controllers\Api\V1\Public\CatalogController;
 use Illuminate\Support\Facades\Route;
 
@@ -17,6 +20,7 @@ Route::prefix('v1')->group(function (): void {
     Route::get('home-content', [CatalogController::class, 'homeContent']);
     Route::get('products', [CatalogController::class, 'products']);
     Route::get('products/{slug}', [CatalogController::class, 'show']);
+    Route::post('payments/midtrans/notification', MidtransNotificationController::class)->middleware('throttle:120,1');
 
     Route::prefix('auth')->group(function (): void {
         Route::post('register', [AuthController::class, 'register']);
@@ -48,6 +52,8 @@ Route::prefix('v1')->group(function (): void {
     });
 
     Route::middleware(['auth:sanctum', 'role:admin', 'throttle:60,1'])->prefix('admin')->name('admin.')->group(function (): void {
+        Route::get('dashboard', DashboardController::class);
+        Route::get('orders', [AdminOrderController::class, 'index']);
         Route::get('site-content', [SiteContentController::class, 'index']);
         Route::put('site-content/settings', [SiteContentController::class, 'saveSettings']);
         Route::post('site-content/categories', [SiteContentController::class, 'saveCategory']);

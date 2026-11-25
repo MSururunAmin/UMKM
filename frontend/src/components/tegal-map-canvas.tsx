@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { LeafletContext, createLeafletContext, type LeafletContextInterface } from "@react-leaflet/core";
+import { Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import * as L from "leaflet";
-import { useEffect } from "react";
 import type { MapPoint } from "@/components/tegal-map";
 import type { StoreLocation } from "@/types/api";
 
@@ -22,6 +22,62 @@ type TegalMapCanvasProps = {
   onLocationSelect?: (point: MapPoint) => void;
   height?: string;
 };
+
+type StrictModeSafeMapContainerProps = {
+  center: [number, number];
+  zoom: number;
+  className: string;
+  children: ReactNode;
+};
+
+function StrictModeSafeMapContainer({ center, zoom, className, children }: StrictModeSafeMapContainerProps) {
+  const [context, setContext] = useState<LeafletContextInterface | null>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const removalTimerRef = useRef<number | null>(null);
+  const [latitude, longitude] = center;
+
+  const setContainer = useCallback((container: HTMLDivElement | null) => {
+    if (!container) return;
+
+    if (removalTimerRef.current !== null) {
+      window.clearTimeout(removalTimerRef.current);
+      removalTimerRef.current = null;
+    }
+
+    if (mapRef.current) return;
+
+    const map = L.map(container, { scrollWheelZoom: true });
+    map.setView([latitude, longitude], zoom);
+    mapRef.current = map;
+    setContext(createLeafletContext(map));
+  }, [latitude, longitude, zoom]);
+
+  useEffect(() => {
+    if (removalTimerRef.current !== null) {
+      window.clearTimeout(removalTimerRef.current);
+      removalTimerRef.current = null;
+    }
+
+    return () => {
+      const map = mapRef.current;
+      if (!map) return;
+
+      removalTimerRef.current = window.setTimeout(() => {
+        if (mapRef.current === map) {
+          map.remove();
+          mapRef.current = null;
+        }
+        removalTimerRef.current = null;
+      }, 0);
+    };
+  }, []);
+
+  return (
+    <div ref={setContainer} className={className}>
+      {context && <LeafletContext.Provider value={context}>{children}</LeafletContext.Provider>}
+    </div>
+  );
+}
 
 function MapClickHandler({ onLocationSelect }: { onLocationSelect?: TegalMapCanvasProps["onLocationSelect"] }) {
   useMapEvents({
@@ -59,11 +115,10 @@ export default function TegalMapCanvas({
     ?? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
   return (
-    <div className="relative w-full overflow-hidden rounded-2xl border border-brand-border bg-brand-light" style={{ height }}>
-      <MapContainer
+    <div className="relative isolate z-0 w-full overflow-hidden rounded-2xl border border-brand-border bg-brand-light" style={{ height }}>
+      <StrictModeSafeMapContainer
         center={selectedLocation ? [selectedLocation.latitude, selectedLocation.longitude] : tegalCenter}
         zoom={12}
-        scrollWheelZoom
         className="h-full w-full"
       >
         <MapViewport location={selectedLocation} />
@@ -91,7 +146,7 @@ export default function TegalMapCanvas({
             <Popup>Titik lokasi toko yang dipilih</Popup>
           </Marker>
         )}
-      </MapContainer>
+      </StrictModeSafeMapContainer>
       {tileError && <p role="alert" className="absolute left-2 top-2 z-[1000] rounded-lg bg-white/95 px-3 py-2 text-xs text-red-700 shadow">Sebagian ubin peta tidak dapat dimuat. Coba muat ulang halaman.</p>}
     </div>
   );

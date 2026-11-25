@@ -53,9 +53,9 @@ function StoreDetail() {
         ) : (
           <>
             <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_1fr]">
-              <section className="rounded-3xl border border-brand-border bg-white p-6 sm:p-8">
+              <section className="rounded-3xl border border-brand-border/80 bg-white p-5 shadow-[0_18px_48px_-36px_rgba(18,61,43,0.4)] sm:p-8">
                 <p className="flex items-center gap-2 text-sm font-semibold text-brand-secondary"><StoreIcon size={17} /> UMKM Tegal</p>
-                <h1 className="mt-3 text-3xl font-black tracking-tight text-stone-900">{store.store_name}</h1>
+                <h1 className="mt-3 text-3xl font-black tracking-tight text-stone-900 sm:text-4xl">{store.store_name}</h1>
                 {store.description && <p className="mt-3 leading-7 text-brand-muted">{store.description}</p>}
                 <p className="mt-5 flex items-start gap-2 text-sm leading-6 text-stone-700"><MapPin size={17} className="mt-1 shrink-0 text-brand-secondary" />{store.address}</p>
                 <p className="mt-2 text-sm text-brand-muted">{store.village}, {store.district}, {store.regency}, {store.province}</p>
@@ -64,7 +64,7 @@ function StoreDetail() {
                   <span className="text-xs text-brand-muted">Lokasi dicek via OpenStreetMap; bukan verifikasi pemerintah.</span>
                 </div>
                 <div className="mt-6">
-                  <TegalMap stores={[store]} height="20rem" />
+                  <div className="overflow-hidden rounded-2xl border border-brand-border p-1"><TegalMap stores={[store]} height="20rem" /></div>
                 </div>
               </section>
               <section>
@@ -77,12 +77,12 @@ function StoreDetail() {
                   <ul className="mt-4 grid gap-4 sm:grid-cols-2">
                     {store.products.map((product) => (
                       <li key={product.id}>
-                        <Link href={`/products/${product.slug}`} className="block overflow-hidden rounded-2xl border border-brand-border bg-white transition hover:-translate-y-0.5 hover:shadow-brand">
+                        <Link href={`/products/${product.slug}`} className="group block overflow-hidden rounded-2xl border border-brand-border/80 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg">
                           <div className="relative h-40 bg-brand-light">
                             {product.image_url && <Image src={product.image_url} alt={product.name} fill sizes="(max-width: 640px) 100vw, 50vw" unoptimized={product.image_url.includes("/storage/")} className="object-cover" />}
                           </div>
                           <div className="p-4">
-                            <h3 className="font-bold text-stone-900">{product.name}</h3>
+                            <h3 className="font-bold text-stone-900 transition-colors group-hover:text-brand-secondary">{product.name}</h3>
                             <p className="mt-1 text-sm font-bold text-brand-forest">Rp{Number(product.price).toLocaleString("id-ID")}</p>
                           </div>
                         </Link>

@@ -1,8 +1,9 @@
 "use client";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import axios from "axios";
 import Link from "next/link";
-import { CheckCircle2, Pencil, Plus, Store, Trash2, X } from "lucide-react";
+import dynamic from "next/dynamic";
+import { CheckCircle2, Plus, Store } from "lucide-react";
 import { api } from "@/lib/api";
 import { getApiErrorDetails } from "@/lib/api-error";
 import { createMerchantProductFormData } from "@/lib/merchant-product-form";
@@ -10,20 +11,16 @@ import { useAuthStore } from "@/store/auth-store";
 import type { Category, Product, User } from "@/types/api";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { MerchantLocationForm } from "@/components/merchant-location-form";
-
-type Order = { id: number; order_number: string; status: string; total_amount: string; shipping_type: "delivery" | "pickup"; delivery_address: string | null; is_test: boolean; user: { name: string } };
-type ProductForm = {
-  name: string;
-  category_id: string;
-  price: string;
-  stock: string;
-  description: string;
-  image: File | null;
-};
+import { IncomingOrders } from "@/components/merchant-dashboard/incoming-orders";
+import { ProductList } from "@/components/merchant-dashboard/product-list";
+import type { MerchantOrder, ProductForm } from "@/components/merchant-dashboard/types";
 
 const emptyForm: ProductForm = { name: "", category_id: "", price: "", stock: "", description: "", image: null };
+const ProductDialog = dynamic(
+  () => import("@/components/merchant-dashboard/product-dialog").then((module) => module.ProductDialog),
+  { loading: () => null },
+);
 
 function apiErrorMessage(error: unknown, fallback: string): string {
   const details = getApiErrorDetails(error, fallback);
@@ -40,7 +37,7 @@ export default function MerchantDashboard() {
     && Boolean(user.merchant?.is_verified && !user.merchant.rejected_at);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<MerchantOrder[]>([]);
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -50,10 +47,24 @@ export default function MerchantDashboard() {
   const [isUpdatingStoreStatus, setIsUpdatingStoreStatus] = useState(false);
   const [storeStatusNotice, setStoreStatusNotice] = useState("");
   const [message, setMessage] = useState("");
+  const isLoadingOrders = useRef(false);
 
   const loadProducts = useCallback(async () => {
     const response = await api.get("/merchant/products");
     setProducts(response.data.data);
+  }, []);
+
+  const loadOrders = useCallback(async () => {
+    if (isLoadingOrders.current) return;
+    isLoadingOrders.current = true;
+    try {
+      const response = await api.get<{ data: MerchantOrder[] }>("/merchant/orders");
+      setOrders(response.data.data);
+    } catch (error: unknown) {
+      setMessage(apiErrorMessage(error, "Pesanan tidak dapat diperbarui."));
+    } finally {
+      isLoadingOrders.current = false;
+    }
   }, []);
 
   const loadMerchantData = useCallback(async () => {
@@ -72,6 +83,23 @@ export default function MerchantDashboard() {
     if (orderResult.status === "rejected") errors.push(apiErrorMessage(orderResult.reason, "Pesanan tidak dapat dimuat."));
     setMessage(errors.join(" "));
   }, []);
+
+  useEffect(() => {
+    if (!isHydrated || !token || !isMerchant || isVerifyingAccount) return;
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void loadOrders();
+    };
+    const interval = window.setInterval(refreshWhenVisible, 5000);
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [isHydrated, token, isMerchant, isVerifyingAccount, loadOrders]);
 
   const toggleStoreStatus = async () => {
     if (!user?.merchant || !token || isUpdatingStoreStatus) return;
@@ -182,6 +210,16 @@ export default function MerchantDashboard() {
     }
   };
 
+  const updateOrderStatus = async (order: MerchantOrder, status: string) => {
+    try {
+      const response = await api.patch<{ data: MerchantOrder }>(`/merchant/orders/${order.id}/status`, { status });
+      setOrders((currentOrders) => currentOrders.map((currentOrder) => currentOrder.id === order.id ? { ...currentOrder, ...response.data.data } : currentOrder));
+      setMessage("");
+    } catch (error: unknown) {
+      setMessage(apiErrorMessage(error, "Status pesanan gagal diperbarui."));
+    }
+  };
+
   if (!isHydrated || (token && isVerifyingAccount)) return <><SiteHeader /><main className="p-12 text-center text-stone-500">Memuat dashboard...</main></>;
   if (!token || !isMerchant) return <><SiteHeader /><main className="mx-auto w-full max-w-3xl flex-1 px-5 py-20 text-center">{message && <p role="alert" className="mx-auto mb-4 max-w-xl rounded-xl bg-red-50 p-3 text-sm text-red-700">{message}</p>}<p className="text-lg font-bold text-stone-900">Dashboard hanya tersedia untuk toko yang sudah disetujui.</p><p className="mt-2 text-sm text-brand-muted">Kamu tetap dapat berbelanja dengan akun pelangganmu.</p><Link href="/seller/register" className="mt-5 inline-flex rounded-full bg-brand-forest px-5 py-3 font-bold text-white hover:bg-brand-secondary">Lihat status toko</Link></main></>;
 
@@ -189,19 +227,19 @@ export default function MerchantDashboard() {
     <>
       <SiteHeader />
       <main className="mx-auto w-full max-w-7xl flex-1 px-5 py-8 sm:px-8 sm:py-10">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-3xl bg-[radial-gradient(ellipse_at_90%_10%,rgba(93,128,93,0.44),transparent_34%),linear-gradient(125deg,#123d2b,#205238_58%,#386641)] px-5 py-6 text-white shadow-[0_26px_65px_-42px_rgba(18,61,43,0.8)] sm:px-7">
           <div>
-            <p className="text-sm font-semibold text-brand-secondary">Kelola toko Anda</p>
-            <h1 id="ringkasan" className="mt-1 text-3xl font-black tracking-tight text-stone-900">Dashboard Merchant</h1>
-            <p className="mt-1 text-sm text-brand-muted">Ringkasan dan aktivitas toko Anda.</p>
+            <p className="text-sm font-semibold text-emerald-200">Kelola toko Anda</p>
+            <h1 id="ringkasan" className="mt-1 text-3xl font-black tracking-tight sm:text-4xl">Dashboard Merchant</h1>
+            <p className="mt-1 text-sm text-emerald-50/80">Ringkasan dan aktivitas toko Anda.</p>
           </div>
-          <Button onClick={openCreateDialog}><Plus size={18} /> Tambah Produk</Button>
+          <Button onClick={openCreateDialog} className="bg-white text-brand-forest shadow-none hover:bg-emerald-50 hover:text-brand-forest"><Plus size={18} /> Tambah Produk</Button>
         </div>
 
-        <section aria-label="Ringkasan toko" className="mt-6 grid gap-4 sm:grid-cols-3">
-          <div className="rounded-2xl border border-brand-border bg-white p-4 shadow-sm sm:p-5"><p className="text-sm font-medium text-brand-muted">Total produk</p><p className="mt-2 text-3xl font-black text-brand-forest">{products.length}</p></div>
-          <div className="rounded-2xl border border-brand-border bg-white p-4 shadow-sm sm:p-5"><p className="text-sm font-medium text-brand-muted">Pesanan masuk</p><p className="mt-2 text-3xl font-black text-brand-forest">{orders.length}</p></div>
-          <div className="rounded-2xl border border-brand-border bg-white p-4 shadow-sm sm:p-5"><p className="text-sm font-medium text-brand-muted">Menunggu diproses</p><p className="mt-2 text-3xl font-black text-brand-forest">{orders.filter((order) => order.status === "pending").length}</p></div>
+        <section aria-label="Ringkasan toko" className="mt-6 grid grid-cols-3 gap-2 sm:gap-4">
+          <div className="min-w-0 rounded-2xl border border-brand-border/80 bg-white p-3 shadow-[0_16px_40px_-34px_rgba(18,61,43,0.55)] sm:p-5"><p className="min-h-8 text-[11px] font-medium leading-4 text-brand-muted sm:min-h-0 sm:text-sm">Total produk</p><p className="mt-1 text-2xl font-black text-brand-forest sm:mt-2 sm:text-3xl">{products.length}</p></div>
+          <div className="min-w-0 rounded-2xl border border-brand-border/80 bg-white p-3 shadow-[0_16px_40px_-34px_rgba(18,61,43,0.55)] sm:p-5"><p className="min-h-8 text-[11px] font-medium leading-4 text-brand-muted sm:min-h-0 sm:text-sm">Pesanan masuk</p><p className="mt-1 text-2xl font-black text-brand-forest sm:mt-2 sm:text-3xl">{orders.length}</p></div>
+          <div className="min-w-0 rounded-2xl border border-brand-border/80 bg-white p-3 shadow-[0_16px_40px_-34px_rgba(18,61,43,0.55)] sm:p-5"><p className="min-h-8 text-[11px] font-medium leading-4 text-brand-muted sm:min-h-0 sm:text-sm">Menunggu diproses</p><p className="mt-1 text-2xl font-black text-brand-forest sm:mt-2 sm:text-3xl">{orders.filter((order) => order.status === "pending").length}</p></div>
         </section>
 
         {user?.merchant && !user.merchant.is_verified && (
@@ -241,105 +279,31 @@ export default function MerchantDashboard() {
         {message && <p role="alert" className="mt-5 rounded-lg bg-red-50 p-3 text-sm text-red-700">{message}</p>}
 
         <div className="mt-8 grid items-start gap-6 lg:grid-cols-[210px_minmax(0,1fr)]">
-          <aside className="rounded-2xl border border-brand-border bg-white p-4 shadow-sm lg:sticky lg:top-24">
+          <aside className="rounded-2xl border border-brand-border/80 bg-white p-3 shadow-[0_16px_40px_-34px_rgba(18,61,43,0.55)] lg:sticky lg:top-24">
             <p className="px-3 pb-2 text-xs font-bold uppercase tracking-[0.14em] text-brand-muted">Menu toko</p>
-            <nav aria-label="Navigasi dashboard" className="grid gap-1">
+            <nav aria-label="Navigasi dashboard" className="flex gap-1 overflow-x-auto lg:grid">
               <a href="#ringkasan" className="rounded-xl bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-brand-forest">Ringkasan</a>
               <a href="#produk-saya" className="rounded-xl px-3 py-2.5 text-sm font-medium text-stone-600 transition hover:bg-emerald-50 hover:text-brand-forest">Produk saya</a>
               <a href="#pesanan-masuk" className="rounded-xl px-3 py-2.5 text-sm font-medium text-stone-600 transition hover:bg-emerald-50 hover:text-brand-forest">Pesanan masuk</a>
             </nav>
           </aside>
           <div className="min-w-0 space-y-6">
-        <section id="produk-saya" className="rounded-2xl border border-brand-border bg-white p-5 shadow-sm sm:p-6">
-          <h2 className="text-xl font-bold">Produk saya</h2>
-          {isLoading ? <p className="mt-5 text-stone-500">Memuat produk...</p> : products.length === 0 ? (
-            <div className="py-12 text-center text-stone-500">
-              <p>Belum ada produk di toko Anda.</p>
-              <Button onClick={openCreateDialog} variant="outline" className="mt-4"><Plus size={16} /> Tambah Produk</Button>
-            </div>
-          ) : (
-            <div className="mt-4 divide-y divide-stone-100">
-              {products.map((product) => (
-                <article key={product.id} className="flex flex-wrap items-center justify-between gap-4 py-4">
-                  <div>
-                    <h3 className="font-semibold">{product.name}</h3>
-                    <p className="mt-1 text-sm text-stone-500">{product.category?.name ?? "Tanpa kategori"} · Stok: {product.stock}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <strong className="text-brand-forest">Rp{Number(product.price).toLocaleString("id-ID")}</strong>
-                    <Button variant="outline" onClick={() => openEditDialog(product)} aria-label={`Ubah ${product.name}`}><Pencil size={16} /> Ubah</Button>
-                    <Button variant="outline" onClick={() => void deleteProduct(product)} aria-label={`Hapus ${product.name}`} className="text-red-600 hover:bg-red-50"><Trash2 size={16} /> Hapus</Button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section id="pesanan-masuk" className="rounded-2xl border border-brand-border bg-white p-5 shadow-sm sm:p-6">
-          <h2 className="text-xl font-bold">Pesanan masuk</h2>
-          {orders.length === 0 ? <p className="mt-4 text-sm text-stone-500">Belum ada pesanan masuk.</p> : orders.map((order) => (
-            <div key={order.id} className="mt-3 flex flex-wrap items-center justify-between gap-3 border-b border-stone-100 pb-3">
-              <span className="min-w-0"><b>{order.order_number}</b><small className="block text-stone-500">{order.user.name} · Rp{Number(order.total_amount).toLocaleString("id-ID")} · {order.shipping_type === "delivery" ? "Diantar" : "Ambil di toko"}</small>{order.is_test && <small className="mt-1 block font-semibold text-amber-800">Pesanan uji · belum dibayar</small>}{order.shipping_type === "delivery" && order.delivery_address && <small className="mt-1 block max-w-xl whitespace-pre-wrap text-stone-600">Alamat: {order.delivery_address}</small>}<Link href={`/orders/${order.id}`} className="mt-2 inline-flex text-sm font-bold text-brand-forest hover:text-brand-secondary">Chat dengan pembeli</Link></span>
-              <select value={order.status} onChange={async (event) => {
-                try {
-                  await api.patch(`/merchant/orders/${order.id}/status`, { status: event.target.value });
-                  setOrders((currentOrders) => currentOrders.map((currentOrder) => currentOrder.id === order.id ? { ...currentOrder, status: event.target.value } : currentOrder));
-                } catch {
-                  setMessage("Status pesanan gagal diperbarui.");
-                }
-              }} aria-label={`Status pesanan ${order.order_number}`} className="rounded-control border border-brand-border bg-white p-2 text-sm outline-none focus:border-brand-secondary focus:ring-2 focus:ring-brand-light">
-                <option value="pending">Pending</option><option value="processing">Diproses</option><option value="completed">Selesai</option><option value="cancelled">Dibatalkan</option>
-              </select>
-            </div>
-          ))}
-        </section>
+        <ProductList products={products} loading={isLoading} onCreate={openCreateDialog} onEdit={openEditDialog} onDelete={(product) => void deleteProduct(product)} />
+        <IncomingOrders orders={orders} onStatusChange={(order, status) => void updateOrderStatus(order, status)} />
           </div>
         </div>
       </main>
 
-      {isDialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-stone-950/50 p-4" onMouseDown={(event) => {
-          if (event.target === event.currentTarget) setIsDialogOpen(false);
-        }}>
-          <section role="dialog" aria-modal="true" aria-labelledby="product-dialog-title" className="my-auto max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
-            <div className="flex items-center justify-between">
-              <h2 id="product-dialog-title" className="text-xl font-bold">{editingProduct ? "Ubah Produk" : "Tambah Produk"}</h2>
-              <button type="button" onClick={() => setIsDialogOpen(false)} aria-label="Tutup dialog" className="rounded-full p-2 text-stone-500 hover:bg-stone-100"><X size={20} /></button>
-            </div>
-            <form onSubmit={saveProduct} className="mt-5 grid gap-4">
-              <label className="grid gap-1.5 text-sm font-medium">Nama Produk
-                <Input required maxLength={255} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
-              </label>
-              <label className="grid gap-1.5 text-sm font-medium">Kategori
-                <select required value={form.category_id} onChange={(event) => setForm({ ...form, category_id: event.target.value })} className="h-11 rounded-control border border-brand-border bg-white px-3 text-sm outline-none focus:border-brand-secondary focus:ring-2 focus:ring-brand-light">
-                  <option value="">Pilih kategori</option>
-                  {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-                </select>
-              </label>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="grid gap-1.5 text-sm font-medium">Harga (Rp)
-                  <Input required type="number" min="0" step="1" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} />
-                </label>
-                <label className="grid gap-1.5 text-sm font-medium">Stok
-                  <Input required type="number" min="0" step="1" value={form.stock} onChange={(event) => setForm({ ...form, stock: event.target.value })} />
-                </label>
-              </div>
-              <label className="grid gap-1.5 text-sm font-medium">Deskripsi
-                <textarea required value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} className="min-h-24 rounded-xl border border-brand-border p-3 text-sm outline-none focus:border-brand-secondary focus:ring-2 focus:ring-brand-light" />
-              </label>
-              <label className="grid gap-1.5 text-sm font-medium">File Gambar Produk{editingProduct && " (opsional jika tidak diganti)"}
-                <Input required={!editingProduct} type="file" accept="image/*" onChange={(event) => setForm({ ...form, image: event.target.files?.[0] ?? null })} className="h-auto py-2" />
-                <span className="font-normal text-stone-500">Format gambar, maksimal 5 MB.</span>
-              </label>
-              <div className="flex justify-end gap-3 pt-2">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Batal</Button>
-                <Button type="submit" disabled={isSaving}>{isSaving ? "Menyimpan..." : editingProduct ? "Simpan Perubahan" : "Simpan Produk"}</Button>
-              </div>
-            </form>
-          </section>
-        </div>
-      )}
+      <ProductDialog
+        open={isDialogOpen}
+        product={editingProduct}
+        form={form}
+        categories={categories}
+        isSaving={isSaving}
+        setForm={setForm}
+        onClose={() => setIsDialogOpen(false)}
+        onSubmit={(event) => void saveProduct(event)}
+      />
     </>
   );
 }

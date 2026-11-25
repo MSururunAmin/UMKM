@@ -107,6 +107,65 @@ class AdminMerchantVerificationTest extends TestCase
             ->assertJsonFragment(['slug' => $this->product->slug]);
     }
 
+    public function test_admin_can_search_and_filter_orders_while_other_users_are_denied(): void
+    {
+        $pendingOrder = $this->customer->orders()->create([
+            'order_number' => 'RSL-ADMIN-ORDER-001',
+            'merchant_id' => $this->pendingStore->id,
+            'total_amount' => 12000,
+            'status' => 'pending',
+            'shipping_type' => 'pickup',
+        ]);
+        $pendingOrder->items()->create([
+            'product_id' => $this->product->id,
+            'quantity' => 2,
+            'price' => 6000,
+            'subtotal' => 12000,
+        ]);
+        $this->customer->orders()->create([
+            'order_number' => 'RSL-ADMIN-ORDER-002',
+            'merchant_id' => $this->pendingStore->id,
+            'total_amount' => 18000,
+            'status' => 'paid',
+            'shipping_type' => 'delivery',
+            'delivery_address' => 'Alamat pelanggan',
+        ]);
+
+        $this->getJson('/api/v1/admin/orders')->assertUnauthorized();
+        Sanctum::actingAs($this->customer);
+        $this->getJson('/api/v1/admin/orders')->assertForbidden();
+
+        Sanctum::actingAs($this->admin);
+        $this->getJson('/api/v1/admin/orders?status=pending&search=RSL-ADMIN-ORDER-001')
+            ->assertOk()
+            ->assertJsonPath('total', 1)
+            ->assertJsonPath('data.0.order_number', 'RSL-ADMIN-ORDER-001')
+            ->assertJsonPath('data.0.user.name', $this->customer->name)
+            ->assertJsonPath('data.0.items.0.product.name', $this->product->name);
+    }
+
+    public function test_customers_merchants_and_administrators_can_view_orders_they_placed(): void
+    {
+        foreach ([
+            [$this->customer, 'CUSTOMER'],
+            [$this->merchantUser, 'MERCHANT'],
+            [$this->admin, 'ADMIN'],
+        ] as [$user, $role]) {
+            $orderNumber = "RSL-OWN-ORDER-{$role}";
+            $user->orders()->create([
+                'order_number' => $orderNumber,
+                'merchant_id' => $this->pendingStore->id,
+                'total_amount' => 6000,
+                'shipping_type' => 'pickup',
+            ]);
+
+            Sanctum::actingAs($user);
+            $this->getJson('/api/v1/customer/orders')
+                ->assertOk()
+                ->assertJsonPath('data.0.order_number', $orderNumber);
+        }
+    }
+
     public function test_admin_can_reject_pending_store_without_publishing_its_products(): void
     {
         Sanctum::actingAs($this->admin);

@@ -1,19 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, MapPin, Store } from "lucide-react";
 import { api } from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { useAuthStore } from "@/store/auth-store";
 import { useCartStore } from "@/store/cart-store";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
-
-declare global {
-  interface Window {
-    snap?: { pay: (token: string, options?: { onSuccess?: () => void; onPending?: () => void }) => void };
-  }
-}
 
 export default function CheckoutPage() {
   const [shippingType, setShippingType] = useState("pickup");
@@ -22,18 +17,10 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const { items, clear } = useCartStore();
   const token = useAuthStore((state) => state.token);
+  const user = useAuthStore((state) => state.user);
   const router = useRouter();
   const total = items.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
-
-  useEffect(() => {
-    const key = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY;
-    if (!key || document.getElementById("midtrans-snap")) return;
-    const script = document.createElement("script");
-    script.id = "midtrans-snap";
-    script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
-    script.dataset.clientKey = key;
-    document.body.appendChild(script);
-  }, []);
+  const canCreateTestOrder = process.env.NODE_ENV === "development" && user?.role === "customer";
 
   const pay = async () => {
     if (!token) return router.push("/login");
@@ -45,19 +32,33 @@ export default function CheckoutPage() {
     setLoading(true);
     setError("");
     try {
-      const result = await api.post<{ data: { id: number }; snap_token: string }>("/customer/orders", {
+      const result = await api.post<{ data: { id: number }; redirect_url: string }>("/customer/orders", {
         shipping_type: shippingType,
         delivery_address: shippingType === "delivery" ? deliveryAddress.trim() : null,
         items: items.map((item) => ({ product_id: item.id, quantity: item.quantity })),
       });
-      if (!window.snap) throw new Error("Midtrans Snap belum dimuat. Tambahkan NEXT_PUBLIC_MIDTRANS_CLIENT_KEY.");
-      const openOrder = () => {
-        clear();
-        router.push(`/orders/${result.data.data.id}`);
-      };
-      window.snap.pay(result.data.snap_token, { onSuccess: openOrder, onPending: openOrder });
+      if (!result.data.redirect_url) {
+        throw new Error("Tautan pembayaran Midtrans tidak tersedia.");
+      }
+
+      try {
+        const referrer = document.referrer ? new URL(document.referrer) : null;
+        if (
+          referrer &&
+          referrer.origin === window.location.origin &&
+          referrer.pathname !== "/checkout" &&
+          !referrer.pathname.startsWith("/payment/")
+        ) {
+          sessionStorage.setItem("umkm_payment_return_url", `${referrer.pathname}${referrer.search}${referrer.hash}`);
+        }
+      } catch {
+        // Invalid referrers are ignored and the payment finish page uses its order fallback.
+      }
+
+      clear();
+      window.location.assign(result.data.redirect_url);
     } catch (paymentError) {
-      setError(paymentError instanceof Error ? paymentError.message : "Pembayaran gagal diproses.");
+      setError(getApiErrorMessage(paymentError, "Pembayaran gagal diproses."));
     } finally {
       setLoading(false);
     }
@@ -81,7 +82,7 @@ export default function CheckoutPage() {
       clear();
       router.push(`/orders/${data.data.id}`);
     } catch (orderError) {
-      setError(orderError instanceof Error ? orderError.message : "Pesanan uji gagal dibuat.");
+      setError(getApiErrorMessage(orderError, "Pesanan uji gagal dibuat."));
     } finally {
       setLoading(false);
     }
@@ -94,7 +95,7 @@ export default function CheckoutPage() {
         <p className="text-sm font-bold uppercase tracking-[0.16em] text-brand-secondary">Satu langkah lagi</p>
         <h1 className="mt-2 text-3xl font-black tracking-tight text-stone-900">Selesaikan pesananmu</h1>
         <div className="mt-8 grid items-start gap-6 lg:grid-cols-[1fr_360px]">
-          <section className="rounded-3xl border border-brand-border bg-white p-5 shadow-sm sm:p-7">
+          <section className="rounded-3xl border border-brand-border/80 bg-white p-5 shadow-[0_20px_55px_-42px_rgba(18,61,43,0.45)] sm:p-7">
             <h2 className="text-xl font-bold text-stone-900">Metode penerimaan</h2>
             <p className="mt-1 text-sm text-brand-muted">Pilih cara menerima pesanan dari penjual.</p>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -129,21 +130,28 @@ export default function CheckoutPage() {
               {items.length === 0 && <p className="py-4 text-sm text-brand-muted">Belum ada menu di keranjang.</p>}
             </div>
           </section>
-          <aside className="rounded-3xl border border-brand-border bg-white p-5 shadow-sm sm:p-6 lg:sticky lg:top-24">
+          <aside className="rounded-3xl border border-brand-border/80 bg-white p-5 shadow-[0_20px_55px_-42px_rgba(18,61,43,0.45)] sm:p-6 lg:sticky lg:top-24">
             <h2 className="text-lg font-bold text-stone-900">Total pembayaran</h2>
             <div className="mt-4 flex items-center justify-between text-sm text-brand-muted"><span>{items.length} jenis menu</span><span>Rp{total.toLocaleString("id-ID")}</span></div>
             <div className="my-4 border-t border-brand-border" />
             <div className="flex items-center justify-between font-bold text-stone-900"><span>Total</span><span className="text-xl text-brand-forest">Rp{total.toLocaleString("id-ID")}</span></div>
             <p className="mt-3 text-xs leading-5 text-brand-muted">Biaya pengiriman, jika ada, dikonfirmasi bersama penjual.</p>
             {error && <p role="alert" className="mt-4 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-            <Button disabled={!items.length || loading} onClick={pay} size="lg" className="mt-5 w-full">{loading ? "Memproses..." : "Bayar dengan Midtrans"}</Button>
-            {process.env.NODE_ENV === "development" && (
+            <Button disabled={!items.length || loading} onClick={pay} size="lg" className="mt-5 w-full">
+              {loading ? "Membuka halaman pembayaran..." : "Bayar dengan Midtrans"}
+            </Button>
+            {canCreateTestOrder && (
               <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
                 <p className="text-xs leading-5 text-amber-900">Mode development: pesanan uji tidak memproses pembayaran dan tidak mengurangi stok.</p>
                 <Button disabled={!items.length || loading} onClick={() => void createTestOrder()} variant="outline" size="lg" className="mt-3 w-full border-amber-300 text-amber-950 hover:bg-amber-100">
                   {loading ? "Membuat pesanan..." : "Buat pesanan uji"}
                 </Button>
               </div>
+            )}
+            {process.env.NODE_ENV === "development" && user && user.role !== "customer" && (
+              <p role="status" className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+                Pesanan uji hanya tersedia untuk akun pelanggan. Akun saat ini bukan pelanggan.
+              </p>
             )}
             {!token && <p className="mt-3 text-center text-xs text-brand-muted">Kamu akan diminta masuk sebelum membayar.</p>}
           </aside>

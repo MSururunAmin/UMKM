@@ -1,14 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7f5eb;
-  --foreground: #202923;
-  --brand-forest: #164e35;
-  --brand-secondary: #386641;
-  --brand-light: #e4ebdd;
-  --brand-cream: #f7f5eb;
-  --brand-muted: #68756a;
-  --brand-border: #e2e8df;
+  --background: #f5f7f2;
+  --foreground: #18251d;
+  --brand-forest: #123d2b;
+  --brand-secondary: #2f704b;
+  --brand-light: #e4eee5;
+  --brand-cream: #f5f7f2;
+  --brand-muted: #65756a;
+  --brand-border: #e1e9e2;
   --ui-radius-control: 0.875rem;
   --ui-radius-card: 1.5rem;
   --ui-shadow-brand: 0 18px 50px -28px rgba(22, 78, 53, 0.22);
@@ -61,9 +61,11 @@ html {
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(ellipse at 12% 0%, rgba(218, 234, 218, 0.42), transparent 34rem),
+    var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-feature-settings: "ss01" on;
   -webkit-font-smoothing: antialiased;
 }
@@ -71,6 +73,33 @@ body {
 ::selection {
   background: var(--brand-light);
   color: var(--brand-forest);
+}
+
+a,
+button,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline-color: var(--brand-secondary);
+}
+
+button:not(:disabled) {
+  cursor: pointer;
+}
+
+.rasa-surface {
+  border: 1px solid rgba(18, 61, 43, 0.09);
+  border-radius: 1.5rem;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 48px -36px rgba(18, 61, 43, 0.4);
 }
 
 .rasa-map-marker {

@@ -3,9 +3,12 @@
 import axios from "axios";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Pencil, Plus, Trash2, X } from "lucide-react";
-import { SiteHeader } from "@/components/site-header";
+import { CheckCircle2, LogIn, Megaphone, PanelsTopLeft, Pencil, Plus, ShieldCheck, Tags, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ContentHero } from "@/components/admin-content/content-hero";
+import { SectionLinks } from "@/components/admin-content/section-links";
+import { TextAreaField, TextField } from "@/components/admin-content/fields";
+import { bannerToForm, categoryToForm, emptyBanner, emptyCategory, type BannerForm, type CategoryForm } from "@/components/admin-content/forms";
 import { api } from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { useAuthStore } from "@/store/auth-store";
@@ -36,30 +39,7 @@ type Banner = {
   is_active: boolean;
   sort_order: number;
 };
-type CategoryForm = { name: string; caption: string; emoji: string; image_url: string; is_active: boolean };
-type BannerForm = { title: string; description: string; image_url: string; link_url: string; is_active: boolean; sort_order: string };
 type ContentResponse = { categories: Category[]; banners: Banner[]; settings: Settings };
-
-const emptyCategory: CategoryForm = { name: "", caption: "", emoji: "🍽️", image_url: "", is_active: true };
-const emptyBanner: BannerForm = { title: "", description: "", image_url: "", link_url: "", is_active: true, sort_order: "0" };
-
-function TextField({ label, value, onChange, maxLength = 255 }: { label: string; value: string; onChange: (value: string) => void; maxLength?: number }) {
-  return (
-    <label className="block text-sm font-semibold text-stone-700">
-      {label}
-      <input value={value} maxLength={maxLength} onChange={(event) => onChange(event.target.value)} className="mt-1.5 h-11 w-full rounded-control border border-brand-border bg-white px-3 text-sm font-normal outline-none focus:border-brand-secondary focus:ring-2 focus:ring-brand-light" />
-    </label>
-  );
-}
-
-function TextAreaField({ label, value, onChange, rows = 3 }: { label: string; value: string; onChange: (value: string) => void; rows?: number }) {
-  return (
-    <label className="block text-sm font-semibold text-stone-700">
-      {label}
-      <textarea value={value} onChange={(event) => onChange(event.target.value)} rows={rows} className="mt-1.5 w-full rounded-control border border-brand-border bg-white px-3 py-2 text-sm font-normal outline-none focus:border-brand-secondary focus:ring-2 focus:ring-brand-light" />
-    </label>
-  );
-}
 
 export default function AdminContentPage() {
   const token = useAuthStore((state) => state.token);
@@ -194,49 +174,49 @@ export default function AdminContentPage() {
 
   const editCategory = (category: Category) => {
     setEditingCategoryId(category.id);
-    setCategoryForm({
-      name: category.name,
-      caption: category.caption ?? "",
-      emoji: category.emoji ?? "🍽️",
-      image_url: category.image_url ?? "",
-      is_active: category.is_active ?? true,
-    });
+    setCategoryForm(categoryToForm(category));
   };
 
   const editBanner = (banner: Banner) => {
     setEditingBannerId(banner.id);
-    setBannerForm({
-      title: banner.title,
-      description: banner.description ?? "",
-      image_url: banner.image_url ?? "",
-      link_url: banner.link_url ?? "",
-      is_active: banner.is_active,
-      sort_order: String(banner.sort_order),
-    });
+    setBannerForm(bannerToForm(banner));
   };
 
   return (
     <>
-      <SiteHeader />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-8 sm:px-8 sm:py-10">
-        <p className="text-sm font-semibold text-brand-secondary">Administrasi marketplace</p>
-        <h1 className="mt-1 text-3xl font-black tracking-tight text-stone-900">Kelola konten website</h1>
-        <p className="mt-2 text-stone-600">Atur kategori, promosi, dan teks beranda tanpa mengubah kode. Untuk keamanan dan performa, konten menggunakan kolom terstruktur, bukan editor HTML bebas.</p>
-        <div className="mt-4 flex flex-wrap gap-3 text-sm font-semibold">
-          <Link href="/admin/merchant-stores" className="text-brand-forest underline">Kelola verifikasi toko</Link>
-        </div>
-        {notice && <p role="status" className="mt-5 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">{notice}</p>}
-        {error && <p role="alert" className="mt-5 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      <main className="mx-auto w-full max-w-6xl flex-1 px-5 pb-8 pt-20 sm:px-8 sm:py-10 lg:py-10">
+        <ContentHero />
+        {notice && <p role="status" className="mt-5 flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-900"><CheckCircle2 size={18} />{notice}</p>}
+        {error && <p role="alert" className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>}
         {!isHydrated || (Boolean(token) && !isAdmin && isLoading) ? (
-          <p className="mt-8 text-stone-500">Memverifikasi akses administrator...</p>
+          <div role="status" className="mt-8 flex items-center gap-4 rounded-3xl border border-brand-border/80 bg-white p-6 shadow-[0_18px_48px_-38px_rgba(18,61,43,0.42)]">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-brand-forest"><ShieldCheck size={21} /></span>
+            <div><p className="font-bold text-stone-900">Memverifikasi akses administrator</p><p className="mt-1 text-sm text-brand-muted">Sebentar, kami sedang menyiapkan ruang kerja admin.</p></div>
+          </div>
         ) : !token || !isAdmin ? (
-          <p className="mt-8 text-stone-600">Masuk menggunakan akun administrator untuk mengelola konten.</p>
+          <section className="mt-8 flex flex-col gap-5 rounded-3xl border border-brand-border/80 bg-white p-6 shadow-[0_18px_48px_-38px_rgba(18,61,43,0.42)] sm:flex-row sm:items-center sm:justify-between sm:p-7">
+            <div className="flex items-start gap-4">
+              <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-brand-forest"><ShieldCheck size={22} /></span>
+              <div><h2 className="font-bold text-stone-900">Area khusus administrator</h2><p className="mt-1 text-sm leading-6 text-brand-muted">Masuk dengan akun administrator untuk mengelola konten website.</p></div>
+            </div>
+            <Link href="/login?next=%2Fadmin%2Fcontent" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-forest px-4 py-3 text-sm font-bold text-white transition hover:bg-brand-secondary">
+              <LogIn size={17} /> Masuk sebagai admin
+            </Link>
+          </section>
         ) : isLoading || !settings ? (
-          <p className="mt-8 text-stone-500">Memuat pengaturan website...</p>
+          <div role="status" className="mt-8 flex items-center gap-4 rounded-3xl border border-brand-border/80 bg-white p-6 shadow-[0_18px_48px_-38px_rgba(18,61,43,0.42)]">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-brand-forest"><PanelsTopLeft size={20} /></span>
+            <div><p className="font-bold text-stone-900">Menyiapkan pengaturan website</p><p className="mt-1 text-sm text-brand-muted">Konten dan kategori sedang dimuat.</p></div>
+          </div>
         ) : (
-          <div className="mt-7 space-y-6">
-            <form onSubmit={(event) => void saveSettings(event)} className="space-y-5 rounded-2xl border border-brand-border bg-white p-5 shadow-sm sm:p-6">
-              <div><h2 className="text-xl font-bold">Teks beranda</h2><p className="mt-1 text-sm text-brand-muted">Atur judul, deskripsi, dan ajakan pada halaman utama.</p></div>
+          <div className="mt-7">
+            <SectionLinks categoryCount={categories.length} bannerCount={banners.length} />
+
+            <form id="admin-home-content" onSubmit={(event) => void saveSettings(event)} className="mt-6 scroll-mt-28 space-y-5 rounded-3xl border border-brand-border/80 bg-white p-5 shadow-[0_18px_48px_-38px_rgba(18,61,43,0.42)] sm:p-7">
+              <div className="flex items-start gap-3 border-b border-brand-border pb-4">
+                <span className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 text-brand-forest"><PanelsTopLeft size={19} /></span>
+                <div><h2 className="text-xl font-bold">Teks beranda</h2><p className="mt-1 text-sm text-brand-muted">Atur judul, deskripsi, dan ajakan pada halaman utama.</p></div>
+              </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <TextField label="Label hero" value={settings.home_badge} onChange={(value) => setSettings({ ...settings, home_badge: value })} maxLength={120} />
                 <TextField label="Judul hero" value={settings.home_title} onChange={(value) => setSettings({ ...settings, home_title: value })} maxLength={180} />
@@ -256,10 +236,14 @@ export default function AdminContentPage() {
               <Button type="submit" disabled={isSaving}>{isSaving ? "Menyimpan..." : "Simpan teks beranda"}</Button>
             </form>
 
-            <section className="grid gap-6 lg:grid-cols-2">
-              <div className="rounded-2xl border border-brand-border bg-white p-5 shadow-sm sm:p-6">
-                <h2 className="text-xl font-bold">Kategori</h2>
+            <section className="mt-6 grid items-start gap-6 lg:grid-cols-2">
+              <div id="admin-categories" className="scroll-mt-28 rounded-3xl border border-brand-border/80 bg-white p-5 shadow-[0_18px_48px_-38px_rgba(18,61,43,0.42)] sm:p-6">
+                <div className="flex items-start gap-3 border-b border-brand-border pb-4">
+                  <span className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 text-brand-forest"><Tags size={19} /></span>
+                  <div><h2 className="text-xl font-bold">Kategori</h2>
                 <p className="mt-1 text-sm text-brand-muted">Kategori yang dinonaktifkan tidak muncul untuk pelanggan dan penjual.</p>
+                  </div>
+                </div>
                 <form onSubmit={(event) => void saveCategory(event)} className="mt-4 space-y-3">
                   <TextField label="Nama kategori" value={categoryForm.name} onChange={(value) => setCategoryForm({ ...categoryForm, name: value })} maxLength={100} />
                   <div className="grid grid-cols-[100px_1fr] gap-3">
@@ -283,9 +267,13 @@ export default function AdminContentPage() {
                 </ul>
               </div>
 
-              <div className="rounded-2xl border border-brand-border bg-white p-5 shadow-sm sm:p-6">
-                <h2 className="text-xl font-bold">Banner promosi</h2>
+              <div id="admin-banners" className="scroll-mt-28 rounded-3xl border border-brand-border/80 bg-white p-5 shadow-[0_18px_48px_-38px_rgba(18,61,43,0.42)] sm:p-6">
+                <div className="flex items-start gap-3 border-b border-brand-border pb-4">
+                  <span className="flex size-10 items-center justify-center rounded-xl bg-amber-50 text-amber-800"><Megaphone size={19} /></span>
+                  <div><h2 className="text-xl font-bold">Banner promosi</h2>
                 <p className="mt-1 text-sm text-brand-muted">Gunakan URL gambar HTTPS atau biarkan kosong untuk banner warna.</p>
+                  </div>
+                </div>
                 <form onSubmit={(event) => void saveBanner(event)} className="mt-4 space-y-3">
                   <TextField label="Judul banner" value={bannerForm.title} onChange={(value) => setBannerForm({ ...bannerForm, title: value })} maxLength={160} />
                   <TextAreaField label="Deskripsi" value={bannerForm.description} onChange={(value) => setBannerForm({ ...bannerForm, description: value })} rows={2} />

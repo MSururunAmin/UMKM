@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useParams } from "next/navigation";
 import { Check, ChevronRight, Minus, Plus, ShoppingBag, Store } from "lucide-react";
 import { api } from "@/lib/api";
+import { getFoodImage } from "@/lib/food-images";
 import { useCartStore } from "@/store/cart-store";
 import type { Product } from "@/types/api";
 import { SiteHeader } from "@/components/site-header";
@@ -56,10 +57,10 @@ function ProductDetail() {
           <Link href="/products" className="transition hover:text-brand-forest">Katalog</Link><ChevronRight size={15} /><span className="truncate font-medium text-stone-800">{product.name}</span>
         </nav>
         <div className="grid items-start gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14">
-          <div className="relative flex min-h-80 items-center justify-center overflow-hidden rounded-[2rem] border border-brand-border bg-brand-light text-8xl sm:min-h-[30rem]">
-            {product.image_url ? <Image src={product.image_url} alt={product.name} fill priority sizes="(max-width: 1024px) 100vw, 55vw" unoptimized={product.image_url.includes("/storage/")} className="object-cover" /> : "🍲"}
+          <div className="relative flex min-h-80 items-center justify-center overflow-hidden rounded-[2rem] border border-brand-border/80 bg-brand-light text-8xl shadow-[0_22px_60px_-38px_rgba(18,61,43,0.45)] sm:min-h-[30rem]">
+            <Image src={product.image_url || getFoodImage(product.category)} alt={product.name} fill priority sizes="(max-width: 1024px) 100vw, 55vw" unoptimized={Boolean(product.image_url?.includes("/storage/"))} quality={75} className="object-cover" />
           </div>
-          <section className="rounded-[2rem] border border-brand-border bg-white p-6 shadow-sm sm:p-8">
+          <section className="rounded-[2rem] border border-brand-border/80 bg-white p-5 shadow-[0_22px_60px_-38px_rgba(18,61,43,0.42)] sm:p-8">
             {product.category && <span className="inline-flex rounded-full bg-brand-light px-3 py-1 text-xs font-bold text-brand-forest">{product.category.name}</span>}
             <h1 className="mt-4 text-3xl font-black tracking-tight text-stone-900 sm:text-4xl">{product.name}</h1>
             <p className="mt-4 text-base leading-7 text-brand-muted">{product.description}</p>

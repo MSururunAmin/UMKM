@@ -79,16 +79,14 @@ function SiteHeaderContent() {
   };
 
   const isApprovedSeller = Boolean(user?.merchant?.is_verified && !user.merchant.rejected_at);
-  const roleLink = user?.role.toLowerCase() === "admin"
-      ? { href: "/admin/content", label: "Kelola Konten" }
-      : isApprovedSeller
-        ? { href: "/merchant/dashboard", label: "Dashboard Penjual" }
-        : user?.role.toLowerCase() === "customer" || user?.role.toLowerCase() === "merchant"
-          ? { href: "/seller/register", label: user.merchant?.rejected_at ? "Status Pengajuan Toko" : user.merchant ? "Status Toko" : "Daftarkan Toko" }
-          : null;
+  const roleLink = isApprovedSeller
+    ? { href: "/merchant/dashboard", label: "Dashboard Penjual" }
+    : user?.role.toLowerCase() === "customer" || user?.role.toLowerCase() === "merchant"
+      ? { href: "/seller/register", label: user.merchant?.rejected_at ? "Status Pengajuan Toko" : user.merchant ? "Status Toko" : "Daftarkan Toko" }
+      : null;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-emerald-950/10 bg-white/95 shadow-[0_4px_20px_rgba(17,54,38,0.05)] backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-emerald-950/10 bg-white/85 shadow-[0_8px_30px_-24px_rgba(17,54,38,0.35)] backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:h-[72px] sm:px-6 lg:px-8">
         <Link
           href="/"
@@ -188,26 +186,14 @@ function SiteHeaderContent() {
                       {roleLink.label}
                     </Link>
                   )}
-                  {user.role.toLowerCase() === "customer" && (
-                    <Link
-                      href="/orders"
-                      role="menuitem"
-                      onClick={() => setIsProfileMenuOpen(false)}
-                      className="block rounded-xl px-3 py-2.5 text-sm font-medium text-stone-700 transition-colors hover:bg-emerald-50 hover:text-emerald-900"
-                    >
-                      Pesanan saya
-                    </Link>
-                  )}
-                  {user.role.toLowerCase() === "admin" && (
-                    <Link
-                      href="/admin/merchant-stores"
-                      role="menuitem"
-                      onClick={() => setIsProfileMenuOpen(false)}
-                      className="block rounded-xl px-3 py-2.5 text-sm font-medium text-stone-700 transition-colors hover:bg-emerald-50 hover:text-emerald-900"
-                    >
-                      Verifikasi toko
-                    </Link>
-                  )}
+                  <Link
+                    href="/orders"
+                    role="menuitem"
+                    onClick={() => setIsProfileMenuOpen(false)}
+                    className="block rounded-xl px-3 py-2.5 text-sm font-medium text-stone-700 transition-colors hover:bg-emerald-50 hover:text-emerald-900"
+                  >
+                    Pesanan saya
+                  </Link>
                   <button
                     type="button"
                     role="menuitem"
@@ -265,18 +251,6 @@ function SiteHeaderContent() {
                 </Link>
               );
             })}
-            {isHydrated && user?.role.toLowerCase() === "customer" && (
-              <Link
-                href="/orders"
-                aria-current={linkIsActive(pathname, "/orders") ? "page" : undefined}
-                onClick={() => setIsMobileMenuOpen(false)}
-                className={`rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${
-                  linkIsActive(pathname, "/orders") ? "bg-emerald-50 text-emerald-900" : "text-stone-700 hover:bg-stone-50"
-                }`}
-              >
-                Pesanan saya
-              </Link>
-            )}
             <div className="mt-2 flex items-center justify-between border-t border-stone-100 px-4 pt-3 text-sm text-stone-500">
               <span className="flex items-center gap-2"><MapPin size={15} aria-hidden="true" /> Indonesia</span>
               {isHydrated && user ? (

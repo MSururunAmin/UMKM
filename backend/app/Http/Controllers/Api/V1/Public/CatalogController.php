@@ -60,6 +60,7 @@ class CatalogController extends Controller
             'min_price' => ['nullable', 'numeric', 'min:0'],
             'max_price' => ['nullable', 'numeric', 'gte:min_price'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+            'sort_by' => ['nullable', 'in:newest,best_selling'],
         ]);
 
         $products = Product::query()
@@ -71,7 +72,26 @@ class CatalogController extends Controller
             ->when($filters['search'] ?? null, fn ($query, $search) => $query->where(fn ($searchQuery) => $searchQuery->where('name', 'like', "%{$search}%")->orWhere('description', 'like', "%{$search}%")))
             ->when(isset($filters['min_price']), fn ($query) => $query->where('price', '>=', $filters['min_price']))
             ->when(isset($filters['max_price']), fn ($query) => $query->where('price', '<=', $filters['max_price']))
-            ->latest()
+            ->when(
+                ($filters['sort_by'] ?? null) === 'best_selling',
+                fn ($query) => $query
+                    ->whereHas(
+                        'orderItems',
+                        fn ($items) => $items->whereHas(
+                            'order',
+                            fn ($orders) => $orders->whereIn('status', ['paid', 'processing', 'completed']),
+                        ),
+                    )
+                    ->withSum([
+                        'orderItems as sold_quantity' => fn ($items) => $items->whereHas(
+                            'order',
+                            fn ($orders) => $orders->whereIn('status', ['paid', 'processing', 'completed']),
+                        ),
+                    ], 'quantity')
+                    ->orderByDesc('sold_quantity')
+                    ->latest(),
+                fn ($query) => $query->latest(),
+            )
             ->paginate($filters['per_page'] ?? 12);
 
         return response()->json($products);

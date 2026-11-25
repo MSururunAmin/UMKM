@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { MessageCircle, PackageCheck } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
@@ -33,8 +33,11 @@ export default function CustomerOrdersPage() {
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const isLoadingOrders = useRef(false);
 
   const loadOrders = useCallback(async () => {
+    if (isLoadingOrders.current) return;
+    isLoadingOrders.current = true;
     try {
       const { data } = await api.get<{ data: CustomerOrder[] }>("/customer/orders");
       setOrders(data.data);
@@ -42,17 +45,25 @@ export default function CustomerOrdersPage() {
     } catch {
       setError("Pesanan belum dapat dimuat. Silakan coba lagi.");
     } finally {
+      isLoadingOrders.current = false;
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     if (!isHydrated || !token) return;
-    const initialLoad = window.setTimeout(() => void loadOrders(), 0);
-    const interval = window.setInterval(() => void loadOrders(), 20000);
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void loadOrders();
+    };
+    const initialLoad = window.setTimeout(refreshWhenVisible, 0);
+    const interval = window.setInterval(refreshWhenVisible, 5000);
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
     return () => {
       window.clearTimeout(initialLoad);
       window.clearInterval(interval);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
   }, [isHydrated, token, loadOrders]);
 
@@ -63,11 +74,12 @@ export default function CustomerOrdersPage() {
         <p className="text-sm font-bold uppercase tracking-[0.16em] text-brand-secondary">Aktivitas belanjamu</p>
         <h1 className="mt-2 text-3xl font-black tracking-tight text-stone-900">Pesanan saya</h1>
         <p className="mt-2 text-sm text-brand-muted">Pantau proses pesanan dan hubungi penjual langsung dari detailnya.</p>
+        {token && <p role="status" className="mt-2 text-xs text-brand-muted">Status diperbarui otomatis setiap 5 detik saat halaman ini aktif.</p>}
         {error && <p role="alert" className="mt-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
         {loading && token ? <p className="mt-8 text-sm text-brand-muted">Memuat pesanan...</p> : !token && isHydrated ? (
           <p className="mt-8 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Silakan <Link href="/login" className="font-bold underline">masuk</Link> untuk melihat daftar pesanan.</p>
         ) : orders.length === 0 ? (
-          <section className="mt-8 rounded-3xl border border-brand-border bg-white p-8 text-center shadow-sm">
+          <section className="mt-8 rounded-3xl border border-brand-border/80 bg-white p-8 text-center shadow-[0_20px_55px_-42px_rgba(18,61,43,0.45)]">
             <PackageCheck className="mx-auto text-brand-secondary" size={32} />
             <h2 className="mt-3 font-bold text-stone-900">Belum ada pesanan</h2>
             <p className="mt-1 text-sm text-brand-muted">Pesananmu akan muncul di sini setelah checkout.</p>
@@ -76,7 +88,7 @@ export default function CustomerOrdersPage() {
         ) : (
           <div className="mt-7 space-y-4">
             {orders.map((order) => (
-              <article key={order.id} className="rounded-3xl border border-brand-border bg-white p-5 shadow-sm sm:p-6">
+              <article key={order.id} className="rounded-3xl border border-brand-border/80 bg-white p-5 shadow-[0_18px_48px_-38px_rgba(18,61,43,0.42)] transition-shadow hover:shadow-lg sm:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="font-bold text-stone-900">{order.merchant.store_name}</p>

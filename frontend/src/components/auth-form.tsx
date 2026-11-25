@@ -33,7 +33,11 @@ export function AuthForm({ mode }: AuthFormProps) {
       const response = await api.post<AuthResponse>(isLogin ? "/auth/login" : "/auth/register", payload);
       setSession(response.data.user, response.data.token);
       const requestedPath = isLogin ? new URLSearchParams(window.location.search).get("next") : null;
-      const nextPath = requestedPath?.startsWith("/") && !requestedPath.startsWith("//") ? requestedPath : "/";
+      const safeRequestedPath = requestedPath?.startsWith("/") && !requestedPath.startsWith("//") ? requestedPath : null;
+      const isAdmin = response.data.user.role.toLowerCase() === "admin";
+      const nextPath = isAdmin
+        ? (safeRequestedPath?.startsWith("/admin/") ? safeRequestedPath : "/admin/dashboard")
+        : safeRequestedPath ?? "/";
       router.replace(nextPath);
     } catch (requestError) {
       setError(getApiErrorMessage(requestError, "Terjadi kesalahan. Silakan coba lagi."));
@@ -43,8 +47,8 @@ export function AuthForm({ mode }: AuthFormProps) {
   }
 
   return (
-    <Card className="w-full max-w-md shadow-[0_24px_70px_-35px_rgba(22,78,53,0.3)]">
-      <CardHeader className="space-y-4 p-7 sm:p-8"><Link href="/" className="text-xl font-black tracking-tight text-brand-forest">rasa<span className="text-brand-secondary">lokal</span></Link><div><CardTitle className="text-2xl tracking-tight text-stone-900">{isLogin ? "Selamat datang kembali" : "Buat akun baru"}</CardTitle><CardDescription className="mt-2 leading-6">{isLogin ? "Masuk untuk melanjutkan pesananmu." : "Nikmati kuliner UMKM favoritmu dengan mudah."}</CardDescription></div></CardHeader>
+    <Card className="w-full max-w-md overflow-hidden">
+      <CardHeader className="space-y-4 bg-[linear-gradient(135deg,#f1f7f0,#ffffff_72%)] p-7 sm:p-8"><Link href="/" className="inline-flex w-fit items-center rounded-full bg-brand-light px-3 py-1.5 text-sm font-black tracking-tight text-brand-forest">rasa<span className="text-brand-secondary">lokal</span></Link><div><CardTitle className="text-2xl tracking-tight text-stone-900">{isLogin ? "Selamat datang kembali" : "Buat akun baru"}</CardTitle><CardDescription className="mt-2 leading-6">{isLogin ? "Masuk untuk melanjutkan pesananmu." : "Nikmati kuliner UMKM favoritmu dengan mudah."}</CardDescription></div></CardHeader>
       <CardContent className="px-7 pb-7 sm:px-8 sm:pb-8"><form onSubmit={handleSubmit} className="space-y-4">
         {!isLogin && <><Field label="Nama lengkap" name="name" autoComplete="name" required /><Field label="Nomor telepon" name="phone" type="tel" autoComplete="tel" /><label className="grid gap-1.5 text-sm font-medium text-stone-700">Daftar sebagai<select name="role" defaultValue="customer" className="h-11 rounded-xl border border-brand-border bg-white px-3 text-sm outline-none focus:border-brand-secondary focus:ring-2 focus:ring-brand-light"><option value="customer">Pelanggan</option><option value="merchant">Penjual UMKM</option></select></label></>}
         <Field label="Email" name="email" type="email" autoComplete="email" required />

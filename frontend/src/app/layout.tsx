@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth-provider";
@@ -9,7 +10,7 @@ export const metadata: Metadata = {
   description: "Temukan makanan lezat dari UMKM lokal Indonesia.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="id" className="h-full antialiased">
       <body className="flex min-h-full flex-col">

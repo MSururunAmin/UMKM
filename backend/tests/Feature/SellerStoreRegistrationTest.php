@@ -136,19 +136,29 @@ class SellerStoreRegistrationTest extends TestCase
             'image_url' => 'https://example.test/piscok.jpg',
         ]);
         config(['services.midtrans.server_key' => 'test-server-key']);
-        Http::fake(['https://app.sandbox.midtrans.com/snap/v1/transactions' => Http::response(['token' => 'test-snap-token'], 200)]);
+        Http::fake(['https://app.sandbox.midtrans.com/snap/v1/transactions' => Http::response([
+            'token' => 'test-snap-token',
+            'redirect_url' => 'https://app.sandbox.midtrans.com/snap/v2/vtweb/test-snap-token',
+        ], 200)]);
+        config(['services.midtrans.frontend_url' => 'http://localhost:3000']);
         Sanctum::actingAs($this->customer);
         $orderPayload = ['shipping_type' => 'pickup', 'items' => [['product_id' => $product->id, 'quantity' => 1]]];
 
         $firstOrder = $this->postJson('/api/v1/customer/orders', $orderPayload)
             ->assertCreated()
-            ->assertJsonPath('snap_token', 'test-snap-token');
+            ->assertJsonPath('snap_token', 'test-snap-token')
+            ->assertJsonPath('redirect_url', 'https://app.sandbox.midtrans.com/snap/v2/vtweb/test-snap-token');
+        Http::assertSent(fn ($request) => $request->url() === 'https://app.sandbox.midtrans.com/snap/v1/transactions'
+            && $request['callbacks']['finish'] === 'http://localhost:3000/payment/finish'
+            && $request['callbacks']['unfinish'] === 'http://localhost:3000/payment/finish'
+            && $request['callbacks']['error'] === 'http://localhost:3000/payment/finish');
         $this->assertSame($this->customer->id, $firstOrder->json('data.user_id'));
 
         $ownStore->forceFill(['is_verified' => true])->save();
         $this->postJson('/api/v1/customer/orders', $orderPayload)
             ->assertCreated()
-            ->assertJsonPath('snap_token', 'test-snap-token');
+            ->assertJsonPath('snap_token', 'test-snap-token')
+            ->assertJsonPath('redirect_url', 'https://app.sandbox.midtrans.com/snap/v2/vtweb/test-snap-token');
 
         $this->assertSame(2, Order::where('user_id', $this->customer->id)->count());
         $this->assertSame('customer', $this->customer->fresh()->role);
@@ -444,6 +454,73 @@ class SellerStoreRegistrationTest extends TestCase
             ->assertJsonPath('data.slug', $approvedStore->slug)
             ->assertJsonPath('data.products.0.slug', $product->slug)
             ->assertJsonMissingPath('data.user');
+    }
+
+    public function test_public_catalog_can_sort_products_by_completed_sales_and_ignores_cancelled_orders(): void
+    {
+        $store = $this->createStore($this->customer, ['is_verified' => true, 'is_open' => true]);
+        $category = Category::create(['name' => 'Makanan', 'slug' => 'best-selling-'.uniqid()]);
+        $popularProduct = $store->products()->create([
+            'category_id' => $category->id,
+            'name' => 'Menu Terlaris',
+            'slug' => 'best-selling-popular-'.uniqid(),
+            'description' => 'Paling banyak dipesan.',
+            'price' => 10000,
+            'stock' => 10,
+            'is_available' => true,
+            'image_url' => 'https://example.test/popular.jpg',
+        ]);
+        $otherProduct = $store->products()->create([
+            'category_id' => $category->id,
+            'name' => 'Menu Lain',
+            'slug' => 'best-selling-other-'.uniqid(),
+            'description' => 'Menu lainnya.',
+            'price' => 10000,
+            'stock' => 10,
+            'is_available' => true,
+            'image_url' => 'https://example.test/other.jpg',
+        ]);
+        $completedOrder = $this->customer->orders()->create([
+            'merchant_id' => $store->id,
+            'order_number' => 'best-selling-completed-'.uniqid(),
+            'total_amount' => 80000,
+            'status' => 'completed',
+        ]);
+        $completedOrder->items()->create([
+            'product_id' => $popularProduct->id,
+            'quantity' => 8,
+            'price' => 10000,
+            'subtotal' => 80000,
+        ]);
+        $paidOrder = $this->customer->orders()->create([
+            'merchant_id' => $store->id,
+            'order_number' => 'best-selling-paid-'.uniqid(),
+            'total_amount' => 20000,
+            'status' => 'paid',
+        ]);
+        $paidOrder->items()->create([
+            'product_id' => $otherProduct->id,
+            'quantity' => 2,
+            'price' => 10000,
+            'subtotal' => 20000,
+        ]);
+        $cancelledOrder = $this->customer->orders()->create([
+            'merchant_id' => $store->id,
+            'order_number' => 'best-selling-cancelled-'.uniqid(),
+            'total_amount' => 100000,
+            'status' => 'cancelled',
+        ]);
+        $cancelledOrder->items()->create([
+            'product_id' => $otherProduct->id,
+            'quantity' => 10,
+            'price' => 10000,
+            'subtotal' => 100000,
+        ]);
+
+        $this->getJson('/api/v1/products?sort_by=best_selling&category='.$category->slug)
+            ->assertOk()
+            ->assertJsonPath('data.0.slug', $popularProduct->slug)
+            ->assertJsonPath('data.1.slug', $otherProduct->slug);
     }
 
     public function test_customer_cannot_manage_another_approved_merchants_product(): void
